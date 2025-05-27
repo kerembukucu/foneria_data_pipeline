@@ -72,3 +72,8 @@ Ana Tablolar
 Filtrelenmiş Tablolar (Raw Data)
     ↓ (Python - ack_script)
 Özet Tablolar
+```
+
+## ⚙️ C. Teknik Mimari
+- **documentation.xlsx:**
+- utils klasoru altinda calisan python scriptleri hakkinda bilgiler icerir. ozet tablolarin kolonlari hakkindaki bilgiler.
