@@ -17,7 +17,7 @@
 - **Teknik Bilgi:**  
   - Ana tablolardan türetilir.
   - Günlük çalışan SQL scriptleri kullanılır.
-  - Çalışma ortamı: [Airflow](http://airflow.com)
+  - Çalışma ortamı: [Airflow](https://airflow.foneria.com.tr/home)
 
 ---
 
@@ -28,7 +28,7 @@
 
 - **Teknik Bilgi:**  
   - Raw data üzerinde çalışan günlük Python scriptleri ile üretilir.
-  - Çalışma ortamı: [Airflow](http://airflow.com)
+  - Çalışma ortamı: [Airflow](https://airflow.foneria.com.tr/home)
 
 #### Özet Tablolar Listesi
 
@@ -44,7 +44,7 @@
 
 ### Airflow DAG'ları
 
-- **Çalışma Ortamı:** [Airflow UI](http://airflow.com)
+- **Çalışma Ortamı:** [Airflow UI]([http://airflow.com](https://airflow.foneria.com.tr/home))
 - **DAG klasörü path'i:** `path_to_dags`
 - **Script tipi:** Python scriptleri
 
