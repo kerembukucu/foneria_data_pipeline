@@ -74,7 +74,7 @@ Filtrelenmiş Tablolar (Raw Data)
 Özet Tablolar
 ```
 
-## ⚙️ C. Teknik Mimari
+## ⚙️ C. Dokumentatif tablolar
 - **documentation.xlsx:**
   utils klasoru altinda calisan python scriptleri hakkinda bilgiler icerir. ozet tablolarin kolonlari hakkindaki bilgiler.
 - **Digital Data for arketypes_reviewed version_2025_02_10-CANC.xlsx:**
