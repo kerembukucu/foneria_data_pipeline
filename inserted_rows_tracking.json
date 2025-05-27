@@ -1,0 +1,56 @@
+{
+    "2025-05-08": {
+        "actions": 15000,
+        "monthly_outstandings": 2,
+        "daily_outstandings": 2,
+        "monthly_outstanding_funds": 2,
+        "member_details": 2,
+        "bias_results": 2,
+        "digital_actions": 3,
+        "fund_actions": 3,
+        "static": 2,
+        "year_month_based": 2,
+        "year_month_fund_based": 0
+    },
+    "2025-05-09": {
+        "actions": 7,
+        "member_details": 2,
+        "bias_results": 2,
+        "static": 2,
+        "year_month_based": 2,
+        "year_month_fund_based": 0
+    },
+    "2025-05-06": {
+        "actions": 7,
+        "member_details": 2,
+        "bias_results": 2,
+        "static": 2,
+        "year_month_based": 2,
+        "year_month_fund_based": 0
+    },
+    "2025-05-07": {
+        "actions": 7,
+        "member_details": 2,
+        "bias_results": 2
+    },
+    "2025-05-10": {
+        "actions": 11,
+        "member_details": 2,
+        "bias_results": 2,
+        "static": 2,
+        "year_month_based": 1,
+        "year_month_fund_based": 0,
+        "fund_actions": 3,
+        "monthly_outstandings": 2,
+        "daily_outstandings": 2,
+        "monthly_outstanding_funds": 2,
+        "digital_actions": 3
+    },
+    "2025-05-13": {
+        "actions": 7,
+        "member_details": 2,
+        "bias_results": 2,
+        "static": 2,
+        "year_month_based": 1,
+        "year_month_fund_based": 0
+    }
