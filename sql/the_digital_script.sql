@@ -22,7 +22,7 @@ SELECT
     '' event_data
 FROM dws.digital_actions da
 WHERE 
-    customer_id < 1000000 AND 
+    -- customer_id < 1000000 AND 
     event_time >= (CURRENT_DATE - INTERVAL '6 months');
 
 DROP INDEX IF EXISTS dws.IDX_digital_actions_formatted_event_field;
@@ -141,7 +141,7 @@ SELECT
      SPLIT_PART(SPLIT_PART(timestamp, '-', 1), '.', 2) || ' hours')::interval AS converted_timestamp
 FROM dws.actions
 WHERE 
-    customer_id < 1000000 AND 
+    -- customer_id < 1000000 AND 
     timestamp ~ '^[0-9]{2}\.[0-9]{2}-[0-9]{2}\.[0-9]{2}\.[0-9]{2}$' AND
     TO_TIMESTAMP(SPLIT_PART(timestamp, '-', 2), 'DD.MM.YY') >= (CURRENT_DATE - INTERVAL '6 months');
 
