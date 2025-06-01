@@ -45,7 +45,7 @@ SELECT
     COALESCE(a.view_name, '') AS view_name,
     COALESCE(a.activity, '') AS action,
     COALESCE(a.details, '') AS details,
-    a.server_time AS event_time
+    a.client_time AS event_time
 FROM
     customer.activity a
 WHERE
@@ -88,8 +88,8 @@ member_serno IN %s
 and (a.view_name = 'fundsList'
     or a.view_name = 'fundMarket'
     or a.view_name = 'fundDetails')
-and server_time >= %s
-and server_time <= %s
+and client_time >= %s
+and client_time <= %s
 )
 select
 member_serno,
@@ -99,7 +99,7 @@ case
     else 'open'
 end as action_type,
 pfe.fund_code as fund_code,
-pfe.server_time as server_time
+pfe.client_time as client_time
 from
 potential_fund_events pfe,
 product.funds f
@@ -107,7 +107,7 @@ where
 pfe.fund_code = f.code
 order by
 member_serno,
-pfe.server_time
+pfe.client_time
 """
 
 MONTHLY_OUTSTANDING_FUND_QUERY = """
@@ -773,7 +773,7 @@ def fetch_fund_actions(member_sernos, start_date, end_date):
                 df["member_serno"],
                 df["action_type"],
                 df["fund_code"],
-                df["server_time"].apply(format_timestamp)  # Format server_time
+                df["client_time"].apply(format_timestamp)  # Format client_time
             )
         )
 
@@ -1046,7 +1046,7 @@ def main():
         df["customer_id"] = df["customer_id"].map(serno_mapping).fillna(df["customer_id"])
         conn = get_target_connection()
         # Calculate effective drop based on force_drop and specific setting (False)
-        effective_drop_digital_actions = False
+        effective_drop_digital_actions = force_drop or False
         rows_inserted = create_table_from_dataframe(df, 'digital_actions', conn, drop_table=effective_drop_digital_actions)
         print(f"Successfully uploaded {rows_inserted} records to SQL table 'dws.digital_actions'.")
         log_upload("digital_actions", rows_inserted)

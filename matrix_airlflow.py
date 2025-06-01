@@ -67,32 +67,27 @@ def fetch_data():
         conn.close()
 
 
-# def log_upload(table_name, row_count, log_file=row_tracking_path, execution_date=None):
-#     if execution_date:
-#         execution_date_str = execution_date.isoformat()  # Convert to ISO string format
-#     else:
-#         execution_date_str = None
-
-#     today = execution_date
+def log_upload(table_name, row_count, log_file=row_tracking_path):
+    today = str(date.today())
     
-#     # Eğer log dosyası varsa ve boş değilse yükle, yoksa boş dict başlat
-#     if os.path.exists(log_file) and os.path.getsize(log_file) > 0:
-#         with open(log_file, "r") as f:
-#             log_data = json.load(f)
-#     else:
-#         log_data = {}
+    # Eğer log dosyası varsa ve boş değilse yükle, yoksa boş dict başlat
+    if os.path.exists(log_file) and os.path.getsize(log_file) > 0:
+        with open(log_file, "r") as f:
+            log_data = json.load(f)
+    else:
+        log_data = {}
 
-#     # Bugünün girdisini güncelle
-#     if today not in log_data:
-#         log_data[today] = {}
+    # Bugünün girdisini güncelle
+    if today not in log_data:
+        log_data[today] = {}
     
-#     log_data[today][table_name] = row_count
+    log_data[today][table_name] = row_count
 
-#     # Dosyaya tekrar yaz
-#     with open(log_file, "w") as f:
-#         json.dump(log_data, f, indent=4)
+    # Dosyaya tekrar yaz
+    with open(log_file, "w") as f:
+        json.dump(log_data, f, indent=4)
 
-def log_upload_to_db(table_name, row_count, conn, execution_date=None):
+def log_upload_to_db(table_name, row_count, conn):
     """
     Logs the upload info to the 'upload_log' table in PostgreSQL.
 
@@ -101,8 +96,7 @@ def log_upload_to_db(table_name, row_count, conn, execution_date=None):
         row_count (int): Number of rows uploaded.
         conn: psycopg2 connection object.
     """
-    today = execution_date
-
+    today = date.today()
     cur = conn.cursor()
 
     try:
@@ -144,9 +138,9 @@ def log_upload_to_db(table_name, row_count, conn, execution_date=None):
 
 
 
-def upsert_monthly_dataframe(df, table_name, conn, schema="public", execution_date=None):
+def upsert_monthly_dataframe(df, table_name, conn, schema="public"):
     cur = conn.cursor()
-    today = execution_date
+    today = date.today()
     current_year, current_month = today.year, today.month
     is_first_day = today.day == 1
 
@@ -284,30 +278,23 @@ def hodri_meydan():
     return merged_df1, merged_df2, merged_df3
 
 
-def write_to_target(**kwargs):
-
-    execution_date_str = kwargs["ds"]  # e.g., '2025-03-11'
-    execution_date = datetime.strptime(execution_date_str, "%Y-%m-%d").date()
-
-    print(f"Running for execution_date: {execution_date}")
-
-
+def write_to_target():
     static, year_month_based, year_month_fund_based = hodri_meydan()
     conn = get_target_connection()
 
-    static_rows = upsert_monthly_dataframe(static, "static", conn, schema="dws", execution_date=execution_date)
+    static_rows = upsert_monthly_dataframe(static, "static", conn, schema="dws")
     print(f"{static_rows} rows uploaded to static")
-    # log_upload("static", static_rows, execution_date=execution_date)
-    log_upload_to_db("static", static_rows, conn, execution_date=execution_date)
+    # log_upload("static", static_rows)
+    log_upload_to_db("static", static_rows, conn)
 
-    year_month_based_rows = upsert_monthly_dataframe(year_month_based, "year_month_based", conn, schema="dws", execution_date=execution_date)
+    year_month_based_rows = upsert_monthly_dataframe(year_month_based, "year_month_based", conn, schema="dws")
     print(f"{year_month_based_rows} rows uploaded to year_month_based")
-    # log_upload("year_month_based", year_month_based_rows, execution_date=execution_date)
-    log_upload_to_db("year_month_based", year_month_based_rows, conn, execution_date=execution_date)
-    year_month_fund_based_rows = upsert_monthly_dataframe(year_month_fund_based, "year_month_fund_based", conn, schema="dws", execution_date=execution_date)
+    # log_upload("year_month_based", year_month_based_rows)
+    log_upload_to_db("year_month_based", year_month_based_rows, conn)
+    year_month_fund_based_rows = upsert_monthly_dataframe(year_month_fund_based, "year_month_fund_based", conn, schema="dws")
     print(f"{year_month_fund_based_rows} rows uploaded to year_month_fund_based")
-    # log_upload("year_month_fund_based", year_month_fund_based_rows, execution_date=execution_date)
-    log_upload_to_db("year_month_fund_based", year_month_fund_based_rows, conn, execution_date=execution_date)
+    # log_upload("year_month_fund_based", year_month_fund_based_rows)
+    log_upload_to_db("year_month_fund_based", year_month_fund_based_rows, conn)
     print("✅ Veri Target PostgreSQL'e başarıyla yazıldı.")
 
 
@@ -319,9 +306,17 @@ def run_sql_script():
     with open(script_path, 'r') as f:
         sql = f.read()
     try:
+        # Execute the SQL script
         cur.execute(sql)
+        
+        # Get the number of rows affected
+        rows_affected = cur.rowcount
+        
+        # Log the number of rows affected
+        log_upload_to_db("the_digital_script", rows_affected, conn)
+        
         conn.commit()
-        print("✅ SQL script executed successfully.")
+        print(f"✅ SQL script executed successfully. {rows_affected} rows affected.")
     except Exception as e:
         conn.rollback()
         print(f"❌ Failed to execute SQL script: {e}")
@@ -333,29 +328,26 @@ def run_sql_script():
 
 default_args = {
     "owner": "kerem",
-    "start_date": datetime(2024, 5, 1),
+    "start_date": datetime(2024, 3, 19),
     "retries": 1,
 }
 
 dag = DAG(
     "data_transfer_pipeline",
     default_args=default_args,
-    schedule_interval="@daily",
-    catchup=True,
-    max_active_runs=1,
+    schedule_interval=None,
+    catchup=False,
 )
 
 transfer_task = PythonOperator(
     task_id="transfer_data",
     python_callable=write_to_target,
-    provide_context= True,
     dag=dag,
 )
 
 run_sql_task = PythonOperator(
     task_id="run_sql_script",
     python_callable=run_sql_script,
-    provide_context= True,
     dag=dag,
 )
 
