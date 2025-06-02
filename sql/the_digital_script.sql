@@ -61,24 +61,42 @@ CREATE TABLE dws.lookup_IGNORED_EVENTS (
     ignored_event_field TEXT NOT NULL
 );
 
+-- Insert sabit veri seti
 INSERT INTO dws.lookup_IGNORED_EVENTS (view_name, action, details, ignored_event_field) 
 VALUES 
     ('signIn', 'click', 'auto login', 'signIn - click - auto login'),
-    ('x', 'x', 'x', 'signn - click - auto login'),
     ('foreground', 'open', 'app is on foreground', 'foreground - open - app is on foreground'),
     ('foreground', 'open', 'app is on foreground ios', 'foreground - open - app is on foreground ios'),
     ('x', 'x', 'x', 'background - open - app is on background ios'),
+    ('x', 'x', 'x', 'background - open - app is on background'),
     ('x', 'x', 'x', 'settings - click - Çıkış Yap'),
     ('x', 'x', 'x', 'bottomTabBar - click - Hesabım'),
     ('x', 'x', 'x', 'bottomTabBar - click - Portföyüm'),
-    ('x', 'x', 'x', 'settings - click - k Yap'),
-    ('x', 'x', 'x', 'bottomTabBar - click - Hesabm'),
-    ('x', 'x', 'x', 'bottomTabBar - click - Portfym'),
     ('x', 'x', 'x', 'account - click - settings'),
     ('x', 'x', 'x', 'account -  withdraw'),
     ('x', 'x', 'x', 'fundDetails - click - buy'),
-    ('x', 'x', 'x', 'fundDetails - click - back');
+    ('x', 'x', 'x', 'fundDetails - click - back'),
+    ('x', 'x', 'x', 'settings - click - k Yap'),
+    ('x', 'x', 'x', 'signn - click - auto login'),
+    ('x', 'x', 'x', 'bottomTabBar - click - Hesabm'),
+    ('x', 'x', 'x', 'bottomTabBar - click - Portfym');
 
+-- Insert dinamik olarak oluşturulan veri seti
+INSERT INTO dws.lookup_IGNORED_EVENTS (view_name, action, details, ignored_event_field) 
+SELECT DISTINCT 
+    'auto' AS view_name,
+    'cancelbackclose' AS action,
+    'cancelbackclose' AS details,
+    event_field AS ignored_event_field
+FROM dws.digital_actions_formatted  
+WHERE 
+    event_field ILIKE '%cancel%' OR 
+    event_field ILIKE '%close%' OR 
+    event_field ILIKE '%back%' OR  
+    event_field ILIKE '%chart%' OR 
+    event_field ILIKE '%zebra%';
+
+-- Index
 DROP INDEX IF EXISTS dws.idx_lookup_ignored_events;
 CREATE INDEX idx_lookup_ignored_events ON dws.lookup_IGNORED_EVENTS (ignored_event_field);
 
