@@ -929,7 +929,7 @@ def main():
         print(f"Successfully uploaded {rows_inserted} records to SQL table 'dws.fund_actions'.")
         
         # log the date and number of rows inserted to json file
-        log_upload("fund_actions", rows_inserted)
+        # log_upload("fund_actions", rows_inserted)
         log_upload_to_db("fund_actions", rows_inserted, conn)
 
     else:
@@ -946,7 +946,7 @@ def main():
         effective_drop_actions = force_drop or False
         rows_inserted = create_table_from_dataframe(df, 'actions', conn, drop_table=effective_drop_actions)
         print(f"Successfully uploaded {rows_inserted} records to SQL table 'dws.actions'.")
-        log_upload("actions", rows_inserted)
+        # log_upload("actions", rows_inserted)
         log_upload_to_db("actions", rows_inserted, conn)
     else:
         print("No action data found.")
@@ -962,7 +962,7 @@ def main():
         effective_drop_monthly_outstandings = force_drop or False
         rows_inserted = create_table_from_dataframe(df, 'monthly_outstandings', conn, drop_table=effective_drop_monthly_outstandings)
         print(f"Successfully uploaded {rows_inserted} records to SQL table 'dws.monthly_outstandings'.")
-        log_upload("monthly_outstandings", rows_inserted)
+        # log_upload("monthly_outstandings", rows_inserted)
         log_upload_to_db("monthly_outstandings", rows_inserted, conn)
     else:
         print("No outstanding data found.")
@@ -971,14 +971,14 @@ def main():
     print("Fetching daily outstanding data...")
     daily_outstanding_data = fetch_daily_outstanding_volumes(member_sernos, start_date_str, end_date_str)
     if daily_outstanding_data:
-        df = pd.DataFrame(daily_outstanding_data, columns=["customer_id", "date", "account_volume", "fund_volume"])
+        df = pd.DataFrame(daily_outstanding_data, columns=["customer_id", "account_volume", "fund_volume", "date"])
         df["customer_id"] = df["customer_id"].map(serno_mapping).fillna(df["customer_id"])
         conn = get_target_connection()
         # Calculate effective drop based on force_drop and specific setting (False)
         effective_drop_daily_outstandings = force_drop or False
         rows_inserted = create_table_from_dataframe(df, 'daily_outstandings', conn, drop_table=effective_drop_daily_outstandings)
         print(f"Successfully uploaded {rows_inserted} records to SQL table 'dws.daily_outstandings'.")
-        log_upload("daily_outstandings", rows_inserted)
+        # log_upload("daily_outstandings", rows_inserted)
         log_upload_to_db("daily_outstandings", rows_inserted, conn)
     else:
         print("No outstanding data found.")
@@ -995,7 +995,7 @@ def main():
         effective_drop_monthly_outstanding_funds = force_drop or False
         rows_inserted = create_table_from_dataframe(df, 'monthly_outstanding_funds', conn, drop_table=effective_drop_monthly_outstanding_funds)
         print(f"Successfully uploaded {rows_inserted} records to SQL table 'dws.monthly_outstanding_funds'.")
-        log_upload("monthly_outstanding_funds", rows_inserted)
+        # log_upload("monthly_outstanding_funds", rows_inserted)
         log_upload_to_db("monthly_outstanding_funds", rows_inserted, conn)
     else:
         print("No outstanding data found.")
@@ -1011,7 +1011,7 @@ def main():
         effective_drop_member_details = force_drop or True
         rows_inserted = create_table_from_dataframe(df, 'member_details', conn, drop_table=effective_drop_member_details)
         print(f"Successfully uploaded {rows_inserted} records to SQL table 'dws.member_details'.")
-        log_upload("member_details", rows_inserted)
+        # log_upload("member_details", rows_inserted)
         log_upload_to_db("member_details", rows_inserted, conn)
     else:
         print("No member details found.")
@@ -1027,7 +1027,7 @@ def main():
         effective_drop_bias_results = force_drop or True
         rows_inserted = create_table_from_dataframe(df, 'bias_results', conn, drop_table=effective_drop_bias_results)
         print(f"Successfully uploaded {rows_inserted} records to SQL table 'dws.bias_results'.")
-        log_upload("bias_results", rows_inserted)
+        # log_upload("bias_results", rows_inserted)
         log_upload_to_db("bias_results", rows_inserted, conn)
     else:
         print("No bias results found.")
@@ -1049,7 +1049,7 @@ def main():
         effective_drop_digital_actions = force_drop or False
         rows_inserted = create_table_from_dataframe(df, 'digital_actions', conn, drop_table=effective_drop_digital_actions)
         print(f"Successfully uploaded {rows_inserted} records to SQL table 'dws.digital_actions'.")
-        log_upload("digital_actions", rows_inserted)
+        # log_upload("digital_actions", rows_inserted)
         log_upload_to_db("digital_actions", rows_inserted, conn)
     else:
         print("No member details found.")
@@ -1062,32 +1062,3 @@ def main():
     with open(log_file, "w") as f:
         json.dump(log, f, indent=2)
 
-
-default_args = {
-    "owner": "kerem",
-    "start_date": datetime(2024, 3, 19),
-    "retries": 1,
-}
-
-dag = DAG(
-    "data_setup_pipeline",
-    default_args=default_args,
-    schedule_interval="@daily",
-    catchup=False,
-)
-
-transfer_task = PythonOperator(
-    task_id="setup_data",
-    python_callable=main,
-    dag=dag,
-)
-
-# Trigger the second DAG after the first one finishes
-trigger_dag2 = TriggerDagRunOperator(
-    task_id="trigger_dag2",
-    trigger_dag_id="data_transfer_pipeline",  # The second DAG's ID
-    conf={},
-    dag=dag,
-)
-
-transfer_task >> trigger_dag2
