@@ -17,7 +17,10 @@ actions AS (
         customer_id AS cust_id,
         EXTRACT(YEAR FROM TO_TIMESTAMP(timestamp, 'HH24.MI-DD.MM.YY')) AS year,
         EXTRACT(MONTH FROM TO_TIMESTAMP(timestamp, 'HH24.MI-DD.MM.YY')) AS month,
-        SUM(amount) AS transaction_volume,
+        SUM(CASE 
+                WHEN action_type IN ('Fon Alma', 'Fon Satma') THEN amount 
+                ELSE 0 
+            END) AS transaction_volume,
         COUNT(*) AS activity_score
     FROM dws.actions
     WHERE timestamp ~ '^[0-9]{2}.[0-9]{2}-[0-9]{2}.[0-9]{2}.[0-9]{2}$'
@@ -31,16 +34,6 @@ fund_actions AS (
         COUNT(DISTINCT fund_code) AS interested_fund_count
     FROM dws.fund_actions
     WHERE timestamp ~ '^[0-9]{2}.[0-9]{2}-[0-9]{2}.[0-9]{2}.[0-9]{2}$'
-    GROUP BY customer_id, year, month
-),
-daily_clicks AS (
-    SELECT
-        customer_id AS cust_id,
-        EXTRACT(YEAR FROM date::date) AS year,
-        EXTRACT(MONTH FROM date::date) AS month,
-        COUNT(*) AS daily_click_count
-    FROM dws.daily_outstandings
-    WHERE date::TEXT ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
     GROUP BY customer_id, year, month
 ),
 avg_outstanding AS (
@@ -97,6 +90,19 @@ owned_fund_risk_calc AS (
     FROM dws.monthly_outstanding_funds mof
     JOIN dws.fund_details fd ON mof.fund_code = fd.code
     GROUP BY mof.customer_id, year, month
+),
+hourly_activity AS (
+    SELECT
+        customer_id AS cust_id,
+        EXTRACT(YEAR FROM TO_TIMESTAMP(timestamp, 'HH24.MI-DD.MM.YY')) AS year,
+        EXTRACT(MONTH FROM TO_TIMESTAMP(timestamp, 'HH24.MI-DD.MM.YY')) AS month,
+        COUNT(*) FILTER (WHERE EXTRACT(HOUR FROM TO_TIMESTAMP(timestamp, 'HH24.MI-DD.MM.YY')) BETWEEN 5 AND 10) AS early_morning,
+        COUNT(*) FILTER (WHERE EXTRACT(HOUR FROM TO_TIMESTAMP(timestamp, 'HH24.MI-DD.MM.YY')) BETWEEN 11 AND 16) AS work_time,
+        COUNT(*) FILTER (WHERE EXTRACT(HOUR FROM TO_TIMESTAMP(timestamp, 'HH24.MI-DD.MM.YY')) BETWEEN 17 AND 22) AS evening,
+        COUNT(*) FILTER (WHERE EXTRACT(HOUR FROM TO_TIMESTAMP(timestamp, 'HH24.MI-DD.MM.YY')) BETWEEN 0 AND 4 OR EXTRACT(HOUR FROM TO_TIMESTAMP(timestamp, 'HH24.MI-DD.MM.YY')) > 22) AS night
+    FROM dws.actions
+    WHERE timestamp ~ '^[0-9]{2}.[0-9]{2}-[0-9]{2}.[0-9]{2}.[0-9]{2}$'
+    GROUP BY customer_id, year, month
 )
 SELECT
     m.cust_id,
@@ -111,13 +117,16 @@ SELECT
     ofc.owned_fund_count,
     ofr.owned_fund_risk,
     a.activity_score,
-    d.daily_click_count
+    ROUND(100.0 * ha.early_morning / NULLIF((ha.early_morning + ha.work_time + ha.evening + ha.night), 0), 2) AS early_morning_activity_percentage,
+    ROUND(100.0 * ha.work_time / NULLIF((ha.early_morning + ha.work_time + ha.evening + ha.night), 0), 2) AS work_time_activity_percentage,
+    ROUND(100.0 * ha.evening / NULLIF((ha.early_morning + ha.work_time + ha.evening + ha.night), 0), 2) AS evening_activity_percentage,
+    ROUND(100.0 * ha.night / NULLIF((ha.early_morning + ha.work_time + ha.evening + ha.night), 0), 2) AS night_activity_percentage
 FROM monthly m
 LEFT JOIN fund_actions f ON m.cust_id = f.cust_id AND m.year = f.year AND m.month = f.month
 LEFT JOIN actions a ON m.cust_id = a.cust_id AND m.year = a.year AND m.month = a.month
-LEFT JOIN daily_clicks d ON m.cust_id = d.cust_id AND m.year = d.year AND m.month = d.month
 LEFT JOIN avg_outstanding ao ON m.cust_id = ao.cust_id AND m.year = ao.year AND m.month = ao.month
 LEFT JOIN outstanding_trend_calc ot ON m.cust_id = ot.cust_id AND m.year = ot.year AND m.month = ot.month
 LEFT JOIN fund_action_risk far ON m.cust_id = far.cust_id AND m.year = far.year AND m.month = far.month
 LEFT JOIN owned_funds ofc ON m.cust_id = ofc.cust_id AND m.year = ofc.year AND m.month = ofc.month
-LEFT JOIN owned_fund_risk_calc ofr ON m.cust_id = ofr.cust_id AND m.year = ofr.year AND m.month = ofr.month;
+LEFT JOIN owned_fund_risk_calc ofr ON m.cust_id = ofr.cust_id AND m.year = ofr.year AND m.month = ofr.month
+LEFT JOIN hourly_activity ha ON m.cust_id = ha.cust_id AND m.year = ha.year AND m.month = ha.month;
