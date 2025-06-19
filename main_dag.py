@@ -12,7 +12,8 @@ dag_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(dag_dir)  # Add dags folder to sys.path
 
 from extract_transactions import main as extract_main
-from matrix_airflow import digital_sql_script, run_summary_static, run_summary_year_month_based, run_summary_year_month_fund  # Now this will work
+from matrix_airflow import digital_sql_script, run_summary_static, run_summary_year_month_based, run_summary_year_month_fund, run_arketip  # Now this will work
+
 
 
 default_args = {
@@ -57,7 +58,11 @@ with DAG(
         task_id='run_summary_year_month_fund_sql',
         python_callable=run_summary_year_month_fund
     )
-
+    run_arketip = PythonOperator(
+        task_id='run_arketip_sql',
+        python_callable=run_arketip
+    )   
 
     # Define dependencies
-    run_main >> [run_matrix_script, run_summary_static, run_summary_ym, run_summary_ym_fund]
+    run_main >> [run_matrix_script, run_summary_static, run_summary_ym, run_summary_ym_fund, run_arketip]
+

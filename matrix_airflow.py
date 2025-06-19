@@ -164,3 +164,29 @@ def run_summary_year_month_fund():
         raise
     finally:
         conn.close()
+
+
+def run_arketip():
+    conn = get_target_connection()
+    cur = conn.cursor()
+    script_path = os.path.join(dag_dir, 'sql', 'arketip.sql')
+    with open(script_path, 'r') as f:
+        sql = f.read()
+    try:
+        # Birden fazla statement varsa, split edip çalıştır
+        for statement in sql.split(';'):
+            statement = statement.strip()
+            if statement:
+                cur.execute(statement)
+        # Son tabloyu say
+        cur.execute("SELECT COUNT(*) FROM dws.arketip;")
+        row_count = cur.fetchone()[0]
+        log_upload_to_db("arketip", row_count, conn)
+        conn.commit()
+        print(f"✅ arketip.sql executed successfully. {row_count} rows in arketip.")
+    except Exception as e:
+        conn.rollback()
+        print(f"Failed: {e}")
+        raise
+    finally:
+        conn.close()

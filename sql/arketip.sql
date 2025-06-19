@@ -1,457 +1,341 @@
+-- dya_score
+UPDATE dws.arketip a
+SET dya_score = 1
+FROM (
+    SELECT DISTINCT customer_id::text AS customer_id
+    FROM dws.bias_results
+    WHERE result_key = 'BIT'
+) b
+WHERE a.customer_id = b.customer_id;
+
+-- has_account_ready
+UPDATE dws.arketip a
+SET has_account_ready = 1
+FROM (
+    SELECT customer_id::text AS customer_id
+    FROM dws.member_details
+    WHERE account_ready_time IS NOT NULL
+) md
+WHERE a.customer_id = md.customer_id;
 
 -- addBankAccount
-
-ALTER TABLE dws.year_month_based
-ADD COLUMN addBankAccount INTEGER DEFAULT 0;
-
-UPDATE dws.year_month_based ymb
+UPDATE dws.arketip a
 SET addBankAccount = 1
 FROM (
-    SELECT DISTINCT customer_id,
-                    EXTRACT(YEAR FROM event_time)::INT AS year,
-                    EXTRACT(MONTH FROM event_time)::INT AS month
+    SELECT DISTINCT customer_id::text AS customer_id
     FROM dws.digital_actions
     WHERE details::TEXT ILIKE '%addBankAccount%'
 ) da
-WHERE ymb."CUST_ID" = da.customer_id
-  AND ymb."YEAR" = da.year
-  AND ymb."MONTH" = da.month;
-
+WHERE a.customer_id = da.customer_id;
 
 -- settings
-
-ALTER TABLE dws.year_month_based
-ADD COLUMN settings INTEGER DEFAULT 0;
-
-UPDATE dws.year_month_based ymb
+UPDATE dws.arketip a
 SET settings = da.settings_count
 FROM (
-    SELECT customer_id,
-           EXTRACT(YEAR FROM event_time)::INT AS year,
-           EXTRACT(MONTH FROM event_time)::INT AS month,
-           COUNT(*) AS settings_count
+    SELECT customer_id::text AS customer_id, COUNT(*) AS settings_count
     FROM dws.digital_actions
     WHERE view_name ILIKE '%settings%'
-    GROUP BY customer_id, year, month
+    GROUP BY customer_id
 ) da
-WHERE ymb."CUST_ID" = da.customer_id
-  AND ymb."YEAR" = da.year
-  AND ymb."MONTH" = da.month;
-
+WHERE a.customer_id = da.customer_id;
 
 -- bes
-
-ALTER TABLE dws.year_month_based
-ADD COLUMN bes INTEGER DEFAULT 0;
-
-UPDATE dws.year_month_based ymb
+UPDATE dws.arketip a
 SET bes = 1
 FROM (
-    SELECT DISTINCT customer_id,
-                    EXTRACT(YEAR FROM event_time)::INT AS year,
-                    EXTRACT(MONTH FROM event_time)::INT AS month
+    SELECT DISTINCT customer_id::text AS customer_id
     FROM dws.digital_actions
     WHERE details::TEXT ILIKE '%besSuggestion%'
 ) da
-WHERE ymb."CUST_ID" = da.customer_id
-  AND ymb."YEAR" = da.year
-  AND ymb."MONTH" = da.month;
-
+WHERE a.customer_id = da.customer_id;
 
 -- otonom
-
-ALTER TABLE dws.year_month_based
-ADD COLUMN otonom INTEGER DEFAULT 0;
-
-UPDATE dws.year_month_based ymb
+UPDATE dws.arketip a
 SET otonom = 1
 FROM (
-    SELECT DISTINCT customer_id,
-                    EXTRACT(YEAR FROM event_time)::INT AS year,
-                    EXTRACT(MONTH FROM event_time)::INT AS month
+    SELECT DISTINCT customer_id::text AS customer_id
     FROM dws.digital_actions
     WHERE details::TEXT ILIKE '%investmentStrategies%'
 ) da
-WHERE ymb."CUST_ID" = da.customer_id
-  AND ymb."YEAR" = da.year
-  AND ymb."MONTH" = da.month;
-
+WHERE a.customer_id = da.customer_id;
 
 -- pushNotification
-
-ALTER TABLE dws.year_month_based
-ADD COLUMN pushNotification INTEGER DEFAULT 0;
-
-UPDATE dws.year_month_based ymb
+UPDATE dws.arketip a
 SET pushNotification = da.pushNotification_count
 FROM (
-    SELECT customer_id,
-           EXTRACT(YEAR FROM event_time)::INT AS year,
-           EXTRACT(MONTH FROM event_time)::INT AS month,
-           COUNT(*) AS pushNotification_count
+    SELECT customer_id::text AS customer_id, COUNT(*) AS pushNotification_count
     FROM dws.digital_actions
     WHERE view_name ILIKE '%pushNotification%'
-    GROUP BY customer_id, year, month
+    GROUP BY customer_id
 ) da
-WHERE ymb."CUST_ID" = da.customer_id
-  AND ymb."YEAR" = da.year
-  AND ymb."MONTH" = da.month;
-
-
+WHERE a.customer_id = da.customer_id;
 
 -- compare
-
-ALTER TABLE dws.year_month_based
-ADD COLUMN compare INTEGER DEFAULT 0;
-
-UPDATE dws.year_month_based ymb
+UPDATE dws.arketip a
 SET compare = da.compare_count
 FROM (
-    SELECT customer_id,
-           EXTRACT(YEAR FROM event_time)::INT AS year,
-           EXTRACT(MONTH FROM event_time)::INT AS month,
-           COUNT(*) AS compare_count
+    SELECT customer_id::text AS customer_id, COUNT(*) AS compare_count
     FROM dws.digital_actions
     WHERE view_name ILIKE '%manageComparisonItems%'
-    and details ILIKE '%apply%'
-    GROUP BY customer_id, year, month
+      AND details ILIKE '%apply%'
+    GROUP BY customer_id
 ) da
-WHERE ymb."CUST_ID" = da.customer_id
-  AND ymb."YEAR" = da.year
-  AND ymb."MONTH" = da.month;
+WHERE a.customer_id = da.customer_id;
 
 -- filterselection
-
-ALTER TABLE dws.year_month_based
-ADD COLUMN filterselection INTEGER DEFAULT 0;
-
-UPDATE dws.year_month_based ymb
+UPDATE dws.arketip a
 SET filterselection = da.filterselection_count
 FROM (
-    SELECT customer_id,
-           EXTRACT(YEAR FROM event_time)::INT AS year,
-           EXTRACT(MONTH FROM event_time)::INT AS month,
-           COUNT(*) AS filterselection_count
+    SELECT customer_id::text AS customer_id, COUNT(*) AS filterselection_count
     FROM dws.digital_actions
     WHERE view_name ILIKE '%filterSelection%'
-    GROUP BY customer_id, year, month
+    GROUP BY customer_id
 ) da
-WHERE ymb."CUST_ID" = da.customer_id
-  AND ymb."YEAR" = da.year
-  AND ymb."MONTH" = da.month;
-
+WHERE a.customer_id = da.customer_id;
 
 -- sorting
-
-ALTER TABLE dws.year_month_based
-ADD COLUMN sorting INTEGER DEFAULT 0;
-
-UPDATE dws.year_month_based ymb
+UPDATE dws.arketip a
 SET sorting = da.sorting_count
 FROM (
-    SELECT customer_id,
-           EXTRACT(YEAR FROM event_time)::INT AS year,
-           EXTRACT(MONTH FROM event_time)::INT AS month,
-           COUNT(*) AS sorting_count
+    SELECT customer_id::text AS customer_id, COUNT(*) AS sorting_count
     FROM dws.digital_actions
     WHERE view_name ILIKE '%fundsList%'
-    and details ILIKE '%ChangeSortDirection%'
-    GROUP BY customer_id, year, month
+      AND details ILIKE '%ChangeSortDirection%'
+    GROUP BY customer_id
 ) da
-WHERE ymb."CUST_ID" = da.customer_id
-  AND ymb."YEAR" = da.year
-  AND ymb."MONTH" = da.month;
+WHERE a.customer_id = da.customer_id;
 
-
--- otonom portfoyden sonra 1 hafta icinde 2 den fazla fon alanlar
-
-ALTER TABLE dws.year_month_based
-ADD COLUMN otonombuy INTEGER DEFAULT 0;
-
-WITH all_strategy_events AS (
-    SELECT customer_id,
-           event_time AS strategy_time
-    FROM dws.digital_actions
-    WHERE details::TEXT ILIKE '%investmentStrategies%'
-),
-fon_alma_counts AS (
-    SELECT s.customer_id,
-           s.strategy_time,
-           COUNT(*) AS fon_alma_count
-    FROM all_strategy_events s
-    JOIN dws.actions a 
-      ON a.customer_id = s.customer_id
-     AND to_timestamp(a."timestamp", 'HH24.MI-DD.MM.YY') BETWEEN s.strategy_time AND s.strategy_time + INTERVAL '7 days'
-    WHERE a.action_type::TEXT ILIKE '%Fon Alma%'
-    GROUP BY s.customer_id, s.strategy_time
-),
-qualified_events AS (
-    SELECT customer_id,
-           EXTRACT(YEAR FROM strategy_time)::INT AS year,
-           EXTRACT(MONTH FROM strategy_time)::INT AS month
+-- otonombuy (customers with >1 "Fon Alma" in 1 week after investmentStrategies)
+UPDATE dws.arketip a
+SET otonombuy = 1
+FROM (
+    WITH all_strategy_events AS (
+        SELECT customer_id::text AS customer_id, event_time AS strategy_time
+        FROM dws.digital_actions
+        WHERE details::TEXT ILIKE '%investmentStrategies%'
+    ),
+    fon_alma_counts AS (
+        SELECT s.customer_id, COUNT(*) AS fon_alma_count
+        FROM all_strategy_events s
+        JOIN dws.actions act
+          ON act.customer_id::text = s.customer_id
+         AND to_timestamp(act."timestamp", 'HH24.MI-DD.MM.YY') BETWEEN s.strategy_time AND s.strategy_time + INTERVAL '7 days'
+        WHERE act.action_type::TEXT ILIKE '%Fon Alma%'
+        GROUP BY s.customer_id
+    )
+    SELECT customer_id
     FROM fon_alma_counts
     WHERE fon_alma_count > 1
-)
-UPDATE dws.year_month_based ymb
-SET otonombuy = 1
-FROM qualified_events q
-WHERE ymb."CUST_ID" = q.customer_id
-  AND ymb."YEAR" = q.year
-  AND ymb."MONTH" = q.month;
-
+) da
+WHERE a.customer_id = da.customer_id;
 
 -- transactionsHistory
-
-ALTER TABLE dws.year_month_based
-ADD COLUMN transactionsHistory INTEGER DEFAULT 0;
-
-UPDATE dws.year_month_based ymb
+UPDATE dws.arketip a
 SET transactionsHistory = da.transactionsHistory_count
 FROM (
-    SELECT customer_id,
-           EXTRACT(YEAR FROM event_time)::INT AS year,
-           EXTRACT(MONTH FROM event_time)::INT AS month,
-           COUNT(*) AS transactionsHistory_count
+    SELECT customer_id::text AS customer_id, COUNT(*) AS transactionsHistory_count
     FROM dws.digital_actions
     WHERE view_name ILIKE '%transactionsHistory%'
-    GROUP BY customer_id, year, month
+    GROUP BY customer_id
 ) da
-WHERE ymb."CUST_ID" = da.customer_id
-  AND ymb."YEAR" = da.year
-  AND ymb."MONTH" = da.month;
+WHERE a.customer_id = da.customer_id;
 
-
-
--- generalSummary
-
-ALTER TABLE dws.year_month_based
-ADD COLUMN generalsummary INTEGER DEFAULT 0;
-
-UPDATE dws.year_month_based ymb
+-- generalsummary
+UPDATE dws.arketip a
 SET generalsummary = da.generalsummary_count
 FROM (
-    SELECT customer_id,
-           EXTRACT(YEAR FROM event_time)::INT AS year,
-           EXTRACT(MONTH FROM event_time)::INT AS month,
-           COUNT(*) AS generalsummary_count
+    SELECT customer_id::text AS customer_id, COUNT(*) AS generalsummary_count
     FROM dws.digital_actions
     WHERE details ILIKE '%generalSummary%'
-    GROUP BY customer_id, year, month
+    GROUP BY customer_id
 ) da
-WHERE ymb."CUST_ID" = da.customer_id
-  AND ymb."YEAR" = da.year
-  AND ymb."MONTH" = da.month;
-
+WHERE a.customer_id = da.customer_id;
 
 -- background
-
-ALTER TABLE dws.year_month_based
-ADD COLUMN background INTEGER DEFAULT 0;
-
-UPDATE dws.year_month_based ymb
+UPDATE dws.arketip a
 SET background = da.background_count
 FROM (
-    SELECT customer_id,
-           EXTRACT(YEAR FROM event_time)::INT AS year,
-           EXTRACT(MONTH FROM event_time)::INT AS month,
-           COUNT(*) AS background_count
+    SELECT customer_id::text AS customer_id, COUNT(*) AS background_count
     FROM dws.digital_actions
     WHERE view_name ILIKE '%background%'
-    and action ilike '%open%'
-    GROUP BY customer_id, year, month
+      AND action ILIKE '%open%'
+    GROUP BY customer_id
 ) da
-WHERE ymb."CUST_ID" = da.customer_id
-  AND ymb."YEAR" = da.year
-  AND ymb."MONTH" = da.month;
-
-
+WHERE a.customer_id = da.customer_id;
 
 -- foreground
-
-ALTER TABLE dws.year_month_based
-ADD COLUMN foreground INTEGER DEFAULT 0;
-
-UPDATE dws.year_month_based ymb
+UPDATE dws.arketip a
 SET foreground = da.foreground_count
 FROM (
-    SELECT customer_id,
-           EXTRACT(YEAR FROM event_time)::INT AS year,
-           EXTRACT(MONTH FROM event_time)::INT AS month,
-           COUNT(*) AS foreground_count
+    SELECT customer_id::text AS customer_id, COUNT(*) AS foreground_count
     FROM dws.digital_actions
     WHERE view_name ILIKE '%foreground%'
-    and action ilike '%open%'
-    GROUP BY customer_id, year, month
+      AND action ILIKE '%open%'
+    GROUP BY customer_id
 ) da
-WHERE ymb."CUST_ID" = da.customer_id
-  AND ymb."YEAR" = da.year
-  AND ymb."MONTH" = da.month;
-
-
+WHERE a.customer_id = da.customer_id;
 
 -- canceltransaction
-
-ALTER TABLE dws.year_month_based
-ADD COLUMN canceltransaction INTEGER DEFAULT 0;
-
-UPDATE dws.year_month_based ymb
+UPDATE dws.arketip a
 SET canceltransaction = da.canceltransaction_count
 FROM (
-    SELECT customer_id,
-           EXTRACT(YEAR FROM event_time)::INT AS year,
-           EXTRACT(MONTH FROM event_time)::INT AS month,
-           COUNT(*) AS canceltransaction_count
+    SELECT customer_id::text AS customer_id, COUNT(*) AS canceltransaction_count
     FROM dws.digital_actions
     WHERE view_name ILIKE '%account%'
-    and details ilike '%canceltransaction%'
-    GROUP BY customer_id, year, month
+      AND details ILIKE '%canceltransaction%'
+    GROUP BY customer_id
 ) da
-WHERE ymb."CUST_ID" = da.customer_id
-  AND ymb."YEAR" = da.year
-  AND ymb."MONTH" = da.month;
-
-
+WHERE a.customer_id = da.customer_id;
 
 -- grihelpcenter
-
-ALTER TABLE dws.year_month_based
-ADD COLUMN grihelpcenter INTEGER DEFAULT 0;
-
-UPDATE dws.year_month_based ymb
+UPDATE dws.arketip a
 SET grihelpcenter = da.grihelpcenter_count
 FROM (
-    SELECT customer_id,
-           EXTRACT(YEAR FROM event_time)::INT AS year,
-           EXTRACT(MONTH FROM event_time)::INT AS month,
-           COUNT(*) AS grihelpcenter_count
+    SELECT customer_id::text AS customer_id, COUNT(*) AS grihelpcenter_count
     FROM dws.digital_actions
     WHERE view_name ILIKE '%account%'
-    and details ilike '%grihelpcenter%'
-    GROUP BY customer_id, year, month
+      AND details ILIKE '%grihelpcenter%'
+    GROUP BY customer_id
 ) da
-WHERE ymb."CUST_ID" = da.customer_id
-  AND ymb."YEAR" = da.year
-  AND ymb."MONTH" = da.month;
-
+WHERE a.customer_id = da.customer_id;
 
 -- signup_night
-
-ALTER TABLE dws.year_month_based
-ADD COLUMN signup_night INTEGER DEFAULT 0;
-
-
-UPDATE dws.year_month_based ymb
+UPDATE dws.arketip a
 SET signup_night = da.signup_night_count
 FROM (
-    SELECT customer_id,
-           EXTRACT(YEAR FROM event_time)::INT AS year,
-           EXTRACT(MONTH FROM event_time)::INT AS month,
-           COUNT(*) AS signup_night_count
+    SELECT customer_id::text AS customer_id, COUNT(*) AS signup_night_count
     FROM dws.digital_actions
     WHERE view_name ILIKE '%bottomPopup%'
       AND details ILIKE '%signUp%'
       AND (EXTRACT(HOUR FROM event_time) >= 22 OR EXTRACT(HOUR FROM event_time) < 6)
-    GROUP BY customer_id, year, month
+    GROUP BY customer_id
 ) da
-WHERE ymb."CUST_ID" = da.customer_id
-  AND ymb."YEAR" = da.year
-  AND ymb."MONTH" = da.month;
-
-
+WHERE a.customer_id = da.customer_id;
 
 -- signin_night
-
-ALTER TABLE dws.year_month_based
-ADD COLUMN signin_night INTEGER DEFAULT 0;
-
-
-UPDATE dws.year_month_based ymb
+UPDATE dws.arketip a
 SET signin_night = da.signin_night_count
 FROM (
-    SELECT customer_id,
-           EXTRACT(YEAR FROM event_time)::INT AS year,
-           EXTRACT(MONTH FROM event_time)::INT AS month,
-           COUNT(*) AS signin_night_count
+    SELECT customer_id::text AS customer_id, COUNT(*) AS signin_night_count
     FROM dws.digital_actions
     WHERE view_name ILIKE '%bottomPopup%'
       AND details ILIKE '%signin%'
       AND (EXTRACT(HOUR FROM event_time) >= 22 OR EXTRACT(HOUR FROM event_time) < 6)
-    GROUP BY customer_id, year, month
+    GROUP BY customer_id
 ) da
-WHERE ymb."CUST_ID" = da.customer_id
-  AND ymb."YEAR" = da.year
-  AND ymb."MONTH" = da.month;
-
+WHERE a.customer_id = da.customer_id;
 
 -- order_night
-
-ALTER TABLE dws.year_month_based
-ADD COLUMN order_night INTEGER DEFAULT 0;
-
-
-UPDATE dws.year_month_based ymb
+UPDATE dws.arketip a
 SET order_night = da.order_night_count
 FROM (
-    SELECT customer_id,
-           EXTRACT(YEAR FROM event_time)::INT AS year,
-           EXTRACT(MONTH FROM event_time)::INT AS month,
-           COUNT(*) AS order_night_count
+    SELECT customer_id::text AS customer_id, COUNT(*) AS order_night_count
     FROM dws.digital_actions
     WHERE view_name ILIKE '%orderDetail%'
       AND action ILIKE '%close%'
       AND (EXTRACT(HOUR FROM event_time) >= 22 OR EXTRACT(HOUR FROM event_time) < 6)
-    GROUP BY customer_id, year, month
+    GROUP BY customer_id
 ) da
-WHERE ymb."CUST_ID" = da.customer_id
-  AND ymb."YEAR" = da.year
-  AND ymb."MONTH" = da.month;
+WHERE a.customer_id = da.customer_id;
 
-
-
--- addFavourite 
-
-ALTER TABLE dws.year_month_based
-ADD COLUMN addfavourite INTEGER DEFAULT 0;
-
-UPDATE dws.year_month_based ymb
+-- addfavourite
+UPDATE dws.arketip a
 SET addfavourite = da.addfavourite_count
 FROM (
-    SELECT customer_id,
-           EXTRACT(YEAR FROM event_time)::INT AS year,
-           EXTRACT(MONTH FROM event_time)::INT AS month,
-           COUNT(*) AS addfavourite_count
+    SELECT customer_id::text AS customer_id, COUNT(*) AS addfavourite_count
     FROM dws.digital_actions
     WHERE view_name ILIKE '%fundDetails%'
       AND details ILIKE '%addfavourite%'
       AND (EXTRACT(HOUR FROM event_time) >= 22 OR EXTRACT(HOUR FROM event_time) < 6)
-    GROUP BY customer_id, year, month
+    GROUP BY customer_id
 ) da
-WHERE ymb."CUST_ID" = da.customer_id
-  AND ymb."YEAR" = da.year
-  AND ymb."MONTH" = da.month;
+WHERE a.customer_id = da.customer_id;
 
-
-
--- age
-ALTER TABLE dws.year_month_based
-ADD COLUMN age_28_48 INTEGER DEFAULT 0;
-
-UPDATE dws.year_month_based ymb
+-- age_28_48
+UPDATE dws.arketip a
 SET age_28_48 = 1
 FROM dws.member_details md
-WHERE ymb."CUST_ID" = md.customer_id
+WHERE a.customer_id = md.customer_id::text
   AND (EXTRACT(YEAR FROM CURRENT_DATE) - md.birth_year) BETWEEN 28 AND 48;
 
 
+-- katilim_yatirim
+UPDATE dws.arketip a
+SET katilim_yatirim = 1
+FROM (
+    SELECT
+        m.customer_id::text AS customer_id,
+        -- Katılım fonlarının toplamı
+        SUM(CASE WHEN f.code IS NOT NULL THEN m.fund_volume ELSE 0 END) AS katilim_fon_toplam,
+        -- Tüm fonların toplamı
+        SUM(m.fund_volume) AS toplam_fon,
+        -- Oran
+        CASE
+            WHEN SUM(m.fund_volume) > 0
+            THEN SUM(CASE WHEN f.code IS NOT NULL THEN m.fund_volume ELSE 0 END) / SUM(m.fund_volume)::float
+            ELSE 0
+        END AS oran
+    FROM dws.monthly_outstanding_funds m
+    LEFT JOIN (
+        SELECT DISTINCT code
+        FROM dws.fund_details
+        WHERE asset_class = 'Katılım'
+    ) f ON m.fund_id = f.code
+    GROUP BY m.customer_id
+) t
+WHERE a.customer_id = t.customer_id
+  AND t.oran > 0.8;
+
+--faiz_okey
+UPDATE dws.arketip a
+SET faiz_okey = 1
+FROM (
+    SELECT customer_id::text AS customer_id
+    FROM dws.member_details
+    WHERE interest_preference = 'Y'
+) md
+WHERE a.customer_id = md.customer_id;
+
+--video_izleyen
+UPDATE dws.arketip a
+SET video_izleyen = 1
+FROM (
+    SELECT DISTINCT customer_id::text AS customer_id
+    FROM dws.digital_actions
+    WHERE view_name = 'feeds'
+      AND details = 'close'
+      AND (EXTRACT(HOUR FROM event_time) >= 22 OR EXTRACT(HOUR FROM event_time) < 6)
+) d
+WHERE a.customer_id = d.customer_id;
+
+--dya_gece
+UPDATE dws.arketip a
+SET dya_gece = 1
+FROM (
+    SELECT DISTINCT customer_id::text AS customer_id
+    FROM dws.digital_actions
+    WHERE view_name = 'profiling'
+      AND details = 'startAnalysis'
+      AND (EXTRACT(HOUR FROM event_time) >= 22 OR EXTRACT(HOUR FROM event_time) < 6)
+) d
+WHERE a.customer_id = d.customer_id;
 
 
-
-
-
-
-
-
-
-
-
-
+-- katilim_ilgi
+UPDATE dws.arketip a
+SET katilim_ilgi = 1
+FROM (
+    SELECT
+        fa.customer_id::text AS customer_id,
+        SUM(CASE WHEN fd.code IS NOT NULL THEN 1 ELSE 0 END)::float / COUNT(*) AS oran
+    FROM dws.actions fa
+    LEFT JOIN (
+        SELECT DISTINCT code
+        FROM dws.fund_details
+        WHERE asset_class = 'Katılım'
+    ) fd ON fa.fund_code = fd.code
+    WHERE fa.action_type = 'open'
+    GROUP BY fa.customer_id
+    HAVING SUM(CASE WHEN fd.code IS NOT NULL THEN 1 ELSE 0 END)::float / COUNT(*) > 0.8
+) t
+WHERE a.customer_id = t.customer_id;
