@@ -6,7 +6,8 @@ import json
 from airflow import DAG
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from airflow.operators.python import PythonOperator
-from airflow.operators.dagrun_operator import TriggerDagRunOperator
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
+
 
 TARGET_SCHEMA = 'dws'
 
@@ -197,14 +198,12 @@ MONTHLY_OUTSTANDING_QUERY = """
         SELECT
             member_serno,
             month_end,
-            SUM(size) AS total_size,
-            SUM(movable_size) AS total_movable_size
+            size,
+            movable_size
         FROM
             member_sizes
-        GROUP BY
-            member_serno, month_end
         ORDER BY
-            member_serno, month_end DESC;
+            member_serno, month_end DESC
         """
 
 DAILY_OUTSTANDING_QUERY = """

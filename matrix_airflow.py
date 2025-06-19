@@ -102,3 +102,65 @@ def digital_sql_script():
         conn.close()
 
 
+def run_summary_static():
+    conn = get_target_connection()
+    cur = conn.cursor()
+    script_path = os.path.join(dag_dir, 'sql', 'summary_static.sql')
+    with open(script_path, 'r') as f:
+        sql = f.read()
+    try:
+        cur.execute(sql)
+        cur.execute("SELECT COUNT(*) FROM dws.summary_static;")
+        row_count = cur.fetchone()[0]
+        log_upload_to_db("summary_static", row_count, conn)
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        print(f"Failed: {e}")
+        raise
+    finally:
+        conn.close()
+
+def run_summary_year_month_based():
+    conn = get_target_connection()
+    cur = conn.cursor()
+    script_path = os.path.join(dag_dir, 'sql', 'summary_year_month_based.sql')
+    with open(script_path, 'r') as f:
+        sql = f.read()
+    try:
+        # Split SQL statements and run each
+        for statement in sql.split(';'):
+            statement = statement.strip()
+            if statement:
+                cur.execute(statement)
+        # Tabloyu yeni isimle oluşturduysan, burada SELECT yapabilirsin
+        cur.execute("SELECT COUNT(*) FROM dws.summary_year_month;")
+        row_count = cur.fetchone()[0]
+        log_upload_to_db("summary_year_month", row_count, conn)
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        print(f"Failed: {e}")
+        raise
+    finally:
+        conn.close()
+
+
+def run_summary_year_month_fund():
+    conn = get_target_connection()
+    cur = conn.cursor()
+    script_path = os.path.join(dag_dir, 'sql', 'summary_year_month_fund.sql')
+    with open(script_path, 'r') as f:
+        sql = f.read()
+    try:
+        cur.execute(sql)
+        cur.execute("SELECT COUNT(*) FROM dws.summary_year_month_fund_based;")
+        row_count = cur.fetchone()[0]
+        log_upload_to_db("summary_year_month_fund", row_count, conn)
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        print(f"Failed: {e}")
+        raise
+    finally:
+        conn.close()

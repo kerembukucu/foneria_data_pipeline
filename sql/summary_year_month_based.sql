@@ -15,25 +15,23 @@ WITH monthly AS (
 actions AS (
     SELECT
         customer_id AS cust_id,
-        EXTRACT(YEAR FROM TO_TIMESTAMP(timestamp, 'HH24.MI-DD.MM.YY')) AS year,
-        EXTRACT(MONTH FROM TO_TIMESTAMP(timestamp, 'HH24.MI-DD.MM.YY')) AS month,
+        EXTRACT(YEAR FROM timestamp::timestamp) AS year,
+        EXTRACT(MONTH FROM timestamp::timestamp) AS month,
         SUM(CASE 
                 WHEN action_type IN ('Fon Alma', 'Fon Satma') THEN amount 
                 ELSE 0 
             END) AS transaction_volume,
         COUNT(*) AS activity_score
     FROM dws.actions
-    WHERE timestamp ~ '^[0-9]{2}.[0-9]{2}-[0-9]{2}.[0-9]{2}.[0-9]{2}$'
     GROUP BY customer_id, year, month
 ),
 fund_actions AS (
     SELECT
         customer_id AS cust_id,
-        EXTRACT(YEAR FROM TO_TIMESTAMP(timestamp, 'HH24.MI-DD.MM.YY')) AS year,
-        EXTRACT(MONTH FROM TO_TIMESTAMP(timestamp, 'HH24.MI-DD.MM.YY')) AS month,
-        COUNT(DISTINCT fund_code) AS interested_fund_count
+        EXTRACT(YEAR FROM timestamp::timestamp) AS year,
+        EXTRACT(MONTH FROM timestamp::timestamp) AS month,
+        COUNT(DISTINCT fund_id) AS interested_fund_count
     FROM dws.fund_actions
-    WHERE timestamp ~ '^[0-9]{2}.[0-9]{2}-[0-9]{2}.[0-9]{2}.[0-9]{2}$'
     GROUP BY customer_id, year, month
 ),
 avg_outstanding AS (
@@ -63,13 +61,12 @@ outstanding_trend_calc AS (
 fund_action_risk AS (
     SELECT
         fa.customer_id AS cust_id,
-        EXTRACT(YEAR FROM TO_TIMESTAMP(fa.timestamp, 'HH24.MI-DD.MM.YY')) AS year,
-        EXTRACT(MONTH FROM TO_TIMESTAMP(fa.timestamp, 'HH24.MI-DD.MM.YY')) AS month,
+        EXTRACT(YEAR FROM fa.timestamp::timestamp) AS year,
+        EXTRACT(MONTH FROM fa.timestamp::timestamp) AS month,
         AVG(CAST(fd.risk_value AS NUMERIC)) AS interested_fund_risk
     FROM dws.fund_actions fa
-    JOIN dws.fund_details fd ON fa.fund_code = fd.code
-    WHERE fa.timestamp ~ '^[0-9]{2}.[0-9]{2}-[0-9]{2}.[0-9]{2}.[0-9]{2}$'
-      AND fa.action_type = 'open'
+    JOIN dws.fund_details fd ON fa.fund_id = fd.code
+    WHERE fa.action_type = 'open'
     GROUP BY fa.customer_id, year, month
 ),
 owned_funds AS (
@@ -77,7 +74,7 @@ owned_funds AS (
         customer_id AS cust_id,
         EXTRACT(YEAR FROM TO_DATE(year_month, 'YYYY/MM')) AS year,
         EXTRACT(MONTH FROM TO_DATE(year_month, 'YYYY/MM')) AS month,
-        COUNT(DISTINCT fund_code) AS owned_fund_count
+        COUNT(DISTINCT fund_id) AS owned_fund_count
     FROM dws.monthly_outstanding_funds
     GROUP BY customer_id, year, month
 ),
@@ -86,22 +83,21 @@ owned_fund_risk_calc AS (
         mof.customer_id AS cust_id,
         EXTRACT(YEAR FROM TO_DATE(mof.year_month, 'YYYY/MM')) AS year,
         EXTRACT(MONTH FROM TO_DATE(mof.year_month, 'YYYY/MM')) AS month,
-        SUM(CAST(fd.risk_value AS NUMERIC) * mof.size)::NUMERIC / NULLIF(SUM(mof.size), 0) AS owned_fund_risk
+        SUM(CAST(fd.risk_value AS NUMERIC) * mof.fund_volume)::NUMERIC / NULLIF(SUM(mof.fund_volume), 0) AS owned_fund_risk
     FROM dws.monthly_outstanding_funds mof
-    JOIN dws.fund_details fd ON mof.fund_code = fd.code
+    JOIN dws.fund_details fd ON mof.fund_id = fd.code
     GROUP BY mof.customer_id, year, month
 ),
 hourly_activity AS (
     SELECT
         customer_id AS cust_id,
-        EXTRACT(YEAR FROM TO_TIMESTAMP(timestamp, 'HH24.MI-DD.MM.YY')) AS year,
-        EXTRACT(MONTH FROM TO_TIMESTAMP(timestamp, 'HH24.MI-DD.MM.YY')) AS month,
-        COUNT(*) FILTER (WHERE EXTRACT(HOUR FROM TO_TIMESTAMP(timestamp, 'HH24.MI-DD.MM.YY')) BETWEEN 5 AND 10) AS early_morning,
-        COUNT(*) FILTER (WHERE EXTRACT(HOUR FROM TO_TIMESTAMP(timestamp, 'HH24.MI-DD.MM.YY')) BETWEEN 11 AND 16) AS work_time,
-        COUNT(*) FILTER (WHERE EXTRACT(HOUR FROM TO_TIMESTAMP(timestamp, 'HH24.MI-DD.MM.YY')) BETWEEN 17 AND 22) AS evening,
-        COUNT(*) FILTER (WHERE EXTRACT(HOUR FROM TO_TIMESTAMP(timestamp, 'HH24.MI-DD.MM.YY')) BETWEEN 0 AND 4 OR EXTRACT(HOUR FROM TO_TIMESTAMP(timestamp, 'HH24.MI-DD.MM.YY')) > 22) AS night
+        EXTRACT(YEAR FROM timestamp::timestamp) AS year,
+        EXTRACT(MONTH FROM timestamp::timestamp) AS month,
+        COUNT(*) FILTER (WHERE EXTRACT(HOUR FROM timestamp::timestamp) BETWEEN 5 AND 10) AS early_morning,
+        COUNT(*) FILTER (WHERE EXTRACT(HOUR FROM timestamp::timestamp) BETWEEN 11 AND 16) AS work_time,
+        COUNT(*) FILTER (WHERE EXTRACT(HOUR FROM timestamp::timestamp) BETWEEN 17 AND 22) AS evening,
+        COUNT(*) FILTER (WHERE EXTRACT(HOUR FROM timestamp::timestamp) BETWEEN 0 AND 4 OR EXTRACT(HOUR FROM timestamp::timestamp) > 22) AS night
     FROM dws.actions
-    WHERE timestamp ~ '^[0-9]{2}.[0-9]{2}-[0-9]{2}.[0-9]{2}.[0-9]{2}$'
     GROUP BY customer_id, year, month
 )
 SELECT

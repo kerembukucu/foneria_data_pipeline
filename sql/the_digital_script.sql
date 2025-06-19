@@ -1,8 +1,6 @@
 -- 0 - Create index on digital_actions
-drop index if exists dws.IDX_digital_actions_CUST_ID;
-create index IDX_digital_actions_CUST_ID on dws.digital_actions (customer_id);
-
-
+DROP INDEX IF EXISTS dws.IDX_digital_actions_CUST_ID;
+CREATE INDEX IDX_digital_actions_CUST_ID ON dws.digital_actions (customer_id);
 
 -- 1 - Create digital_actions_formatted
 DROP TABLE IF EXISTS dws.digital_actions_formatted;
@@ -101,9 +99,9 @@ DROP INDEX IF EXISTS dws.idx_lookup_ignored_events;
 CREATE INDEX idx_lookup_ignored_events ON dws.lookup_IGNORED_EVENTS (ignored_event_field);
 
 -- 3 - Create digital_actions_process
-DROP table if exists dws.digital_actions_process;
+DROP TABLE IF EXISTS dws.digital_actions_process;
 
-CREATE TABLE dws.digital_actions_process as 
+CREATE TABLE dws.digital_actions_process AS 
 SELECT 
     customer_id,
     year,
@@ -121,7 +119,7 @@ SELECT
     converted_timestamp 
 FROM dws.digital_actions_formatted da 
 WHERE 
-    da.event_field not in (select ignored_event_field from dws.lookup_IGNORED_EVENTS);
+    da.event_field NOT IN (SELECT ignored_event_field FROM dws.lookup_IGNORED_EVENTS);
 
 INSERT INTO dws.digital_actions_process
 (
@@ -163,37 +161,34 @@ WHERE
     timestamp ~ '^[0-9]{2}\.[0-9]{2}-[0-9]{2}\.[0-9]{2}\.[0-9]{2}$' AND
     TO_TIMESTAMP(SPLIT_PART(timestamp, '-', 2), 'DD.MM.YY') >= (CURRENT_DATE - INTERVAL '6 months');
 
-
-DROP index if exists dws.IDX_digital_actions_process_par_month;
-CREATE index IDX_digital_actions_process_par_month on dws.digital_actions_process (month);
+DROP INDEX IF EXISTS dws.IDX_digital_actions_process_par_month;
+CREATE INDEX IDX_digital_actions_process_par_month ON dws.digital_actions_process (month);
 
 CREATE INDEX idx_digital_actions_customer_id_partition ON dws.digital_actions_process (customer_id);
 CREATE INDEX idx_digital_actions_event_field ON dws.digital_actions_process (event_field);
 CREATE INDEX idx_digital_actions_time ON dws.digital_actions_process (converted_timestamp);
 
-analyze dws.digital_actions_process;
+ANALYZE dws.digital_actions_process;
 
 -- 4 - Create temp_START_END_EVENTS
 DROP TABLE IF EXISTS dws.temp_START_END_EVENTS;
 
 CREATE TABLE dws.temp_START_END_EVENTS (
-    seq INT not null,  
-    direction text not null,
-    customer_id INT not null, 
+    seq INT NOT NULL,  
+    direction TEXT NOT NULL,
+    customer_id INT NOT NULL, 
     converted_timestamp TIMESTAMP NOT NULL,
-    event_field TEXT NOT null,
+    event_field TEXT NOT NULL,
     event_data_text TEXT,
     event_data_num INT
 );
 
-
 INSERT INTO dws.temp_START_END_EVENTS  
 SELECT 
-    et.seq, et.direction, da.customer_id, da.converted_timestamp, da.event_field, da.event_data_text, da.event_data_num
+    et.seq, et.direction, CAST(da.customer_id AS INT), da.converted_timestamp, da.event_field, da.event_data_text, da.event_data_num
 FROM dws.digital_actions_process da
 JOIN dws.lookup_START_END_EVENTS et 
     ON da.event_field = et.event_field AND et.direction = 'last';
-
 
 DROP INDEX IF EXISTS dws.temp_START_END_EVENTS_ind1;
 CREATE INDEX temp_START_END_EVENTS_ind1 ON dws.temp_START_END_EVENTS (customer_id, converted_timestamp);
@@ -230,25 +225,17 @@ WITH end_event AS (
     FROM dws.temp_START_END_EVENTS
     ORDER BY converted_timestamp
 ),
--- Diagnostic: Check end_event CTE
-diagnostic_end_event AS (
-    SELECT COUNT(*) as end_event_count FROM end_event
-),
 lagged_events AS (
     SELECT 
-        da.customer_id, 
+        CAST(da.customer_id AS INT) AS customer_id, 
         da.converted_timestamp AS event_time, 
         da.event_field AS event_type, 
-        LAG(da.event_field) OVER (PARTITION BY da.customer_id ORDER BY da.converted_timestamp) AS prev_event,
+        LAG(da.event_field) OVER (PARTITION BY CAST(da.customer_id AS INT) ORDER BY da.converted_timestamp) AS prev_event,
         ee.seq, 
         ee.last_event_timestamp
     FROM dws.digital_actions_process da
     JOIN end_event ee 
-        ON da.customer_id = ee.customer_id AND da.converted_timestamp < ee.converted_timestamp
-),
--- Diagnostic: Check lagged_events CTE
-diagnostic_lagged_events AS (
-    SELECT COUNT(*) as lagged_events_count FROM lagged_events
+        ON CAST(da.customer_id AS INT) = ee.customer_id AND da.converted_timestamp < ee.converted_timestamp
 ),
 event_group_step1 AS (
     SELECT 
@@ -263,10 +250,6 @@ event_group_step1 AS (
         END AS is_new_group
     FROM lagged_events
 ),
--- Diagnostic: Check event_group_step1 CTE
-diagnostic_event_group_step1 AS (
-    SELECT COUNT(*) as event_group_step1_count FROM event_group_step1
-),
 event_with_groups AS (
     SELECT 
         customer_id, 
@@ -276,10 +259,6 @@ event_with_groups AS (
         last_event_timestamp,
         SUM(is_new_group) OVER (PARTITION BY customer_id, seq ORDER BY event_time) AS event_group
     FROM event_group_step1
-),
--- Diagnostic: Check event_with_groups CTE
-diagnostic_event_with_groups AS (
-    SELECT COUNT(*) as event_with_groups_count FROM event_with_groups
 ),
 distinct_events AS (
     SELECT 
@@ -300,10 +279,6 @@ distinct_events AS (
     ) sub 
     WHERE rn = 1
 ),
--- Diagnostic: Check distinct_events CTE
-diagnostic_distinct_events AS (
-    SELECT COUNT(*) as distinct_events_count FROM distinct_events
-),
 last_3_events AS (
     SELECT 
         customer_id, 
@@ -313,15 +288,11 @@ last_3_events AS (
         last_event_timestamp,
         ROW_NUMBER() OVER (PARTITION BY customer_id, seq ORDER BY event_time DESC) AS event_rank
     FROM distinct_events
-),
--- Diagnostic: Check last_3_events CTE
-diagnostic_last_3_events AS (
-    SELECT COUNT(*) as last_3_events_count FROM last_3_events
 )
 SELECT 
     ee.seq, 
     'last', 
-    l3_1.customer_id, 
+    ee.customer_id,  -- already INT from temp_START_END_EVENTS
     ee.last_event_timestamp,
     l3_1.event_type AS event_1,
     l3_2.event_type AS event_2,
@@ -338,5 +309,3 @@ JOIN end_event ee
     ON l3_1.customer_id = ee.customer_id AND l3_1.seq = ee.seq
 WHERE l3_1.event_rank = 1
 ORDER BY ee.seq, l3_1.customer_id;
-
-
