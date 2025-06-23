@@ -339,3 +339,62 @@ FROM (
     HAVING SUM(CASE WHEN fd.code IS NOT NULL THEN 1 ELSE 0 END)::float / COUNT(*) > 0.8
 ) t
 WHERE a.customer_id = t.customer_id;
+
+-- popular_fund_ratio
+UPDATE dws.arketip a
+SET popular_fund_ratio = ratios.ratio
+FROM (
+    SELECT
+        customer_id,
+        COALESCE(
+            CAST(
+                COUNT(*) FILTER (
+                    WHERE action_type = 'Fon Alma'
+                      AND fund_code IS NOT NULL
+                      AND fund_code IN (SELECT fund_code FROM dws.popular_funds)
+                ) AS FLOAT
+            ) / NULLIF(
+                COUNT(*) FILTER (
+                    WHERE action_type = 'Fon Alma'
+                      AND fund_code IS NOT NULL
+                ), 0),
+            0
+        ) AS ratio
+    FROM dws.actions
+    GROUP BY customer_id
+) ratios
+WHERE a.customer_id = ratios.customer_id;
+
+
+-- yeni_portfoy
+UPDATE dws.arketip a
+SET yeni_portfoy = CASE 
+    WHEN ap.customer_id IS NOT NULL THEN 1 
+    ELSE 0 
+END
+FROM (
+    SELECT DISTINCT customer_id
+    FROM dws.actions
+    WHERE action_type = 'Yeni Portföy Oluşturma'
+) ap
+WHERE a.customer_id = ap.customer_id;
+-- Afterwards, set the rest to 0 just in case:
+UPDATE dws.arketip
+SET yeni_portfoy = 0
+WHERE yeni_portfoy IS NULL;
+
+
+-- birden_fazla_banka_hesabi
+UPDATE dws.arketip a
+SET birden_fazla_banka_hesabi = 1
+FROM (
+    SELECT DISTINCT customer_id
+    FROM dws.actions
+    WHERE action_type = 'Birden Fazla Banka Hesabı Var mı?'
+) b
+WHERE a.customer_id = b.customer_id;
+
+-- Set 0 for users who don't (and still have NULL)
+UPDATE dws.arketip
+SET birden_fazla_banka_hesabi = 0
+WHERE birden_fazla_banka_hesabi IS NULL;

@@ -90,7 +90,7 @@ def digital_sql_script():
         rows_affected = cur.rowcount
         
         # Log the number of rows affected
-        log_upload_to_db("the_digital_script", rows_affected, conn)
+        log_upload_to_db("out_path_4_events", rows_affected, conn)
         
         conn.commit()
         print(f"✅ SQL script executed successfully. {rows_affected} rows affected.")

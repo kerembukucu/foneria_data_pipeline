@@ -267,15 +267,14 @@ ACTION_TYPE_QUERIES = {
     "Otonom Portföy Satma": "select m.serno as member_serno, t.tx_time as \"action_timestamp\", t.amount as \"amount\", t.fund_code from portfolio.transactions t, portfolio.accounts a , customer.members m, product.funds f where t.account_serno = a.serno  and a.member_serno = m.serno AND t.tx_type = 'SEL' and m.serno IN %s AND t.fund_code = f.code AND f.asset_class = 'Otonom Portföy' and t.tx_time >= %s AND t.tx_time <= %s order by m.serno, t.serno",
     "Emir İptal Etme": "select m.serno as member_serno, fo.cancel_time as \"action_timestamp\", fo.amount as \"amount\", fo.fund_code from portfolio.portfolios p, portfolio.accounts a, portfolio.fund_orders fo, customer.members m where p.account_serno = a.serno and fo.portfolio_serno = p.serno and a.member_serno = m.serno and m.serno IN %s AND fo.status = 'C' AND fo.cancelled_by = 'U' ORDER BY m.serno, fo.serno",
     "Yeni Portföy Oluşturma": "WITH cte AS (SELECT p.*, a.member_serno, ROW_NUMBER() OVER (PARTITION BY a.member_serno ORDER BY p.serno) AS row_num FROM portfolio.portfolios p, portfolio.accounts a WHERE p.account_serno = a.serno AND a.member_serno IN %s AND p.TYPE = 'movable') SELECT member_serno, cte.create_date as \"action_timestamp\" FROM cte WHERE row_num > 1 ORDER BY member_serno",
-    "Profil Resmi Ekli mi?": "SELECT serno as member_serno, current_timestamp as \"action_timestamp\" FROM customer.members WHERE serno IN %s and profile_picture is not null ORDER BY serno"
+    "Profil Resmi Ekli mi?": "SELECT serno as member_serno, current_timestamp as \"action_timestamp\" FROM customer.members WHERE serno IN %s and profile_picture is not null ORDER BY serno",
+    "Birden Fazla Banka Hesabı Var mı?": "with cte as (select ri.member_serno, count(*) as \"cnt\" from portfolio.recorded_ibans ri where ri.member_serno in %s group by 1) select cte.member_serno as member_serno, current_timestamp as \"action_timestamp\"  from cte where cte.\"cnt\" > 1"
 }
 
 POPULAR_FUNDS_QUERY = """
 SELECT fl.day, fl.fund_code
 FROM product.fund_lists fl
 WHERE fl.list_type = 'Popular'
-AND fl.day >= %s
-AND fl.day <= %s
 ORDER BY fl.day, fl.fund_code
 """
 
@@ -324,7 +323,7 @@ def create_table_from_dataframe(df, table_name, conn, drop_table=True):
 
     try:
         # Set a statement timeout to avoid hanging queries (3 minutes)
-        cur.execute("SET statement_timeout = 180000")  # 3 minutes in milliseconds
+        cur.execute("SET statement_timeout = 1000000")  # 16 minutes in milliseconds
 
         # Create table with schema if needed
         if drop_table:
@@ -573,6 +572,19 @@ def fetch_fund_details():
     finally:
         conn.close()
 
+def fetch_popular_funds():
+    """Fetch popular funds from the database."""
+    conn = get_source_connection()
+    try:
+        df = pd.read_sql(POPULAR_FUNDS_QUERY, con=conn)
+        print(f"Retrieved {len(df)} popular funds records")
+        return df
+    except Exception as e:
+        print(f"Error fetching popular funds: {e}")
+        return pd.DataFrame()  # Return empty DataFrame on failure
+    finally:
+        conn.close()
+
 def upload_fund_details(force_drop):
     """Fetch fund details and upload to target database."""
     print("Fetching fund details data...")
@@ -586,6 +598,21 @@ def upload_fund_details(force_drop):
         print(f"Successfully uploaded {rows_inserted} records to SQL table 'dws.fund_details'.")
     else:
         print("No fund details found.")
+
+def upload_popular_funds(force_drop):
+    """Fetch popular funds and upload to target database."""
+    print("Fetching popular funds data...")
+    df = fetch_popular_funds()
+
+    if not df.empty:
+        conn = get_target_connection()
+        # Calculate effective drop based on force_drop and specific setting (True)
+        effective_drop_popular_funds = force_drop or True
+        rows_inserted = create_table_from_dataframe(df, 'popular_funds', conn, drop_table=effective_drop_popular_funds)
+        print(f"Successfully uploaded {rows_inserted} records to SQL table 'dws.popular_funds'.")
+    else:
+        print("No popular funds found.")
+
 
 def fetch_daily_outstanding_volumes(actual_sernos, start_date, end_date):
     """Fetch daily outstanding volumes for all members in a single query."""
@@ -1037,6 +1064,9 @@ def main():
     print("Fetching and uploading fund details data...")
     # Pass force_drop to the function
     upload_fund_details(force_drop)
+
+    print("Fetching and uploading popular funds data...")
+    upload_popular_funds(force_drop)
 
 
     # Fetch and write digital actions
