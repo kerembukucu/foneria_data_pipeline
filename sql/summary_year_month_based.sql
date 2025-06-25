@@ -23,6 +23,9 @@ actions AS (
             END) AS transaction_volume,
         COUNT(*) AS activity_score
     FROM dws.actions
+    WHERE timestamp IS NOT NULL 
+      AND timestamp != 'N/A'
+      AND timestamp ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
     GROUP BY customer_id, year, month
 ),
 fund_actions AS (
@@ -30,8 +33,11 @@ fund_actions AS (
         customer_id AS cust_id,
         EXTRACT(YEAR FROM timestamp::timestamp) AS year,
         EXTRACT(MONTH FROM timestamp::timestamp) AS month,
-        COUNT(DISTINCT fund_id) AS interested_fund_count
+        COUNT(DISTINCT fund_code) AS interested_fund_count
     FROM dws.fund_actions
+    WHERE timestamp IS NOT NULL 
+      AND timestamp != 'N/A'
+      AND timestamp ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
     GROUP BY customer_id, year, month
 ),
 avg_outstanding AS (
@@ -41,7 +47,7 @@ avg_outstanding AS (
         EXTRACT(MONTH FROM date::date) AS month,
         AVG(account_volume) AS average_outstanding
     FROM dws.daily_outstandings
-    WHERE date::TEXT ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+    WHERE date IS NOT NULL
     GROUP BY customer_id, year, month
 ),
 outstanding_trend_calc AS (
@@ -55,7 +61,7 @@ outstanding_trend_calc AS (
             ELSE 0
         END AS outstanding_trend
     FROM dws.daily_outstandings
-    WHERE date::TEXT ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+    WHERE date IS NOT NULL
     GROUP BY customer_id, year, month
 ),
 fund_action_risk AS (
@@ -65,8 +71,11 @@ fund_action_risk AS (
         EXTRACT(MONTH FROM fa.timestamp::timestamp) AS month,
         AVG(CAST(fd.risk_value AS NUMERIC)) AS interested_fund_risk
     FROM dws.fund_actions fa
-    JOIN dws.fund_details fd ON fa.fund_id = fd.code
+    JOIN dws.fund_details fd ON fa.fund_code = fd.code
     WHERE fa.action_type = 'open'
+      AND fa.timestamp IS NOT NULL 
+      AND fa.timestamp != 'N/A'
+      AND fa.timestamp ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
     GROUP BY fa.customer_id, year, month
 ),
 owned_funds AS (
@@ -74,8 +83,11 @@ owned_funds AS (
         customer_id AS cust_id,
         EXTRACT(YEAR FROM TO_DATE(year_month, 'YYYY/MM')) AS year,
         EXTRACT(MONTH FROM TO_DATE(year_month, 'YYYY/MM')) AS month,
-        COUNT(DISTINCT fund_id) AS owned_fund_count
+        COUNT(DISTINCT fund_code) AS owned_fund_count
     FROM dws.monthly_outstanding_funds
+    WHERE year_month IS NOT NULL
+      AND year_month != 'N/A'
+      AND year_month ~ '^[0-9]{4}/[0-9]{2}$'
     GROUP BY customer_id, year, month
 ),
 owned_fund_risk_calc AS (
@@ -83,9 +95,12 @@ owned_fund_risk_calc AS (
         mof.customer_id AS cust_id,
         EXTRACT(YEAR FROM TO_DATE(mof.year_month, 'YYYY/MM')) AS year,
         EXTRACT(MONTH FROM TO_DATE(mof.year_month, 'YYYY/MM')) AS month,
-        SUM(CAST(fd.risk_value AS NUMERIC) * mof.fund_volume)::NUMERIC / NULLIF(SUM(mof.fund_volume), 0) AS owned_fund_risk
+        SUM(CAST(fd.risk_value AS NUMERIC) * mof.size)::NUMERIC / NULLIF(SUM(mof.size), 0) AS owned_fund_risk
     FROM dws.monthly_outstanding_funds mof
-    JOIN dws.fund_details fd ON mof.fund_id = fd.code
+    JOIN dws.fund_details fd ON mof.fund_code = fd.code
+    WHERE mof.year_month IS NOT NULL
+      AND mof.year_month != 'N/A'
+      AND mof.year_month ~ '^[0-9]{4}/[0-9]{2}$'
     GROUP BY mof.customer_id, year, month
 ),
 hourly_activity AS (
@@ -98,6 +113,9 @@ hourly_activity AS (
         COUNT(*) FILTER (WHERE EXTRACT(HOUR FROM timestamp::timestamp) BETWEEN 17 AND 22) AS evening,
         COUNT(*) FILTER (WHERE EXTRACT(HOUR FROM timestamp::timestamp) BETWEEN 0 AND 4 OR EXTRACT(HOUR FROM timestamp::timestamp) > 22) AS night
     FROM dws.actions
+    WHERE timestamp IS NOT NULL 
+      AND timestamp != 'N/A'
+      AND timestamp ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
     GROUP BY customer_id, year, month
 )
 SELECT
@@ -118,11 +136,42 @@ SELECT
     ROUND(100.0 * ha.evening / NULLIF((ha.early_morning + ha.work_time + ha.evening + ha.night), 0), 2) AS evening_activity_percentage,
     ROUND(100.0 * ha.night / NULLIF((ha.early_morning + ha.work_time + ha.evening + ha.night), 0), 2) AS night_activity_percentage
 FROM monthly m
-LEFT JOIN fund_actions f ON m.cust_id = f.cust_id AND m.year = f.year AND m.month = f.month
-LEFT JOIN actions a ON m.cust_id = a.cust_id AND m.year = a.year AND m.month = a.month
-LEFT JOIN avg_outstanding ao ON m.cust_id = ao.cust_id AND m.year = ao.year AND m.month = ao.month
-LEFT JOIN outstanding_trend_calc ot ON m.cust_id = ot.cust_id AND m.year = ot.year AND m.month = ot.month
-LEFT JOIN fund_action_risk far ON m.cust_id = far.cust_id AND m.year = far.year AND m.month = far.month
-LEFT JOIN owned_funds ofc ON m.cust_id = ofc.cust_id AND m.year = ofc.year AND m.month = ofc.month
-LEFT JOIN owned_fund_risk_calc ofr ON m.cust_id = ofr.cust_id AND m.year = ofr.year AND m.month = ofr.month
-LEFT JOIN hourly_activity ha ON m.cust_id = ha.cust_id AND m.year = ha.year AND m.month = ha.month;
+LEFT JOIN fund_actions f 
+  ON m.cust_id::text = f.cust_id::text 
+ AND m.year::int = f.year::int 
+ AND m.month::int = f.month::int
+
+LEFT JOIN actions a 
+  ON m.cust_id::text = a.cust_id::text 
+ AND m.year::int = a.year::int 
+ AND m.month::int = a.month::int
+
+LEFT JOIN avg_outstanding ao 
+  ON m.cust_id::text = ao.cust_id::text 
+ AND m.year::int = ao.year::int 
+ AND m.month::int = ao.month::int
+
+LEFT JOIN outstanding_trend_calc ot 
+  ON m.cust_id::text = ot.cust_id::text 
+ AND m.year::int = ot.year::int 
+ AND m.month::int = ot.month::int
+
+LEFT JOIN fund_action_risk far 
+  ON m.cust_id::text = far.cust_id::text 
+ AND m.year::int = far.year::int 
+ AND m.month::int = far.month::int
+
+LEFT JOIN owned_funds ofc 
+  ON m.cust_id::text = ofc.cust_id::text 
+ AND m.year::int = ofc.year::int 
+ AND m.month::int = ofc.month::int
+
+LEFT JOIN owned_fund_risk_calc ofr 
+  ON m.cust_id::text = ofr.cust_id::text 
+ AND m.year::int = ofr.year::int 
+ AND m.month::int = ofr.month::int
+
+LEFT JOIN hourly_activity ha 
+  ON m.cust_id::text = ha.cust_id::text 
+ AND m.year::int = ha.year::int 
+ AND m.month::int = ha.month::int;

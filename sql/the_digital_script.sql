@@ -1,10 +1,5 @@
--- 0 - Create index on digital_actions
-DROP INDEX IF EXISTS dws.IDX_digital_actions_CUST_ID;
-CREATE INDEX IDX_digital_actions_CUST_ID ON dws.digital_actions (customer_id);
-
--- 1 - Create digital_actions_formatted
+-- 1 - Create digital_actions_formatted (temp/process tablo)
 DROP TABLE IF EXISTS dws.digital_actions_formatted;
-
 CREATE TABLE dws.digital_actions_formatted AS 
 SELECT 
     da.customer_id,
@@ -19,15 +14,12 @@ SELECT
     SPLIT_PART(da.details, ',', 2) AS details_aft_comma,
     '' event_data
 FROM dws.digital_actions da
-WHERE 
-    -- customer_id < 1000000 AND 
-    event_time >= (CURRENT_DATE - INTERVAL '6 months');
+WHERE event_time >= (CURRENT_DATE - INTERVAL '6 months');
 
-DROP INDEX IF EXISTS dws.IDX_digital_actions_formatted_event_field;
 CREATE INDEX IDX_digital_actions_formatted_event_field ON dws.digital_actions_formatted (event_field);
 ANALYZE dws.digital_actions_formatted;
 
--- 2 - Create lookup tables
+-- 2 - Create lookup tables (lookup tabloları küçük olduğu için index’leri pipeline’da bırakabilirsin)
 DROP TABLE IF EXISTS dws.lookup_START_END_EVENTS;
 CREATE TABLE dws.lookup_START_END_EVENTS (
     seq SERIAL PRIMARY KEY,  
@@ -39,15 +31,12 @@ CREATE TABLE dws.lookup_START_END_EVENTS (
 );
 
 INSERT INTO dws.lookup_START_END_EVENTS (direction, view_name, action, event_details, event_field) 
-    VALUES 
-       ('last', 'account', 'click', 'deposit', 'account - click - deposit'),
-       ('last', 'account', 'click', 'openAccount', 'account - click - openAccount'),
-       ('last', 'moneyTransfer', 'click', 'addBankAccount', 'moneyTransfer - click - addBankAccount');
+VALUES 
+    ('last', 'account', 'click', 'deposit', 'account - click - deposit'),
+    ('last', 'account', 'click', 'openAccount', 'account - click - openAccount'),
+    ('last', 'moneyTransfer', 'click', 'addBankAccount', 'moneyTransfer - click - addBankAccount');
 
-DROP INDEX IF EXISTS dws.idx_end_events_table;
 CREATE INDEX idx_end_events_table ON dws.lookup_START_END_EVENTS (event_field);
-
-DROP INDEX IF EXISTS dws.idx_lookup_start_end_event;
 CREATE INDEX idx_lookup_start_end_event ON dws.lookup_START_END_EVENTS (event_field, direction);
 
 DROP TABLE IF EXISTS dws.lookup_IGNORED_EVENTS;
@@ -59,7 +48,6 @@ CREATE TABLE dws.lookup_IGNORED_EVENTS (
     ignored_event_field TEXT NOT NULL
 );
 
--- Insert sabit veri seti
 INSERT INTO dws.lookup_IGNORED_EVENTS (view_name, action, details, ignored_event_field) 
 VALUES 
     ('signIn', 'click', 'auto login', 'signIn - click - auto login'),
@@ -79,7 +67,6 @@ VALUES
     ('x', 'x', 'x', 'bottomTabBar - click - Hesabm'),
     ('x', 'x', 'x', 'bottomTabBar - click - Portfym');
 
--- Insert dinamik olarak oluşturulan veri seti
 INSERT INTO dws.lookup_IGNORED_EVENTS (view_name, action, details, ignored_event_field) 
 SELECT DISTINCT 
     'auto' AS view_name,
@@ -94,13 +81,10 @@ WHERE
     event_field ILIKE '%chart%' OR 
     event_field ILIKE '%zebra%';
 
--- Index
-DROP INDEX IF EXISTS dws.idx_lookup_ignored_events;
 CREATE INDEX idx_lookup_ignored_events ON dws.lookup_IGNORED_EVENTS (ignored_event_field);
 
--- 3 - Create digital_actions_process
+-- 3 - Create digital_actions_process (temp/process tablo)
 DROP TABLE IF EXISTS dws.digital_actions_process;
-
 CREATE TABLE dws.digital_actions_process AS 
 SELECT 
     customer_id,
@@ -118,8 +102,7 @@ SELECT
     0  event_data_num,
     converted_timestamp 
 FROM dws.digital_actions_formatted da 
-WHERE 
-    da.event_field NOT IN (SELECT ignored_event_field FROM dws.lookup_IGNORED_EVENTS);
+WHERE da.event_field NOT IN (SELECT ignored_event_field FROM dws.lookup_IGNORED_EVENTS);
 
 INSERT INTO dws.digital_actions_process
 (
@@ -157,22 +140,17 @@ SELECT
      SPLIT_PART(SPLIT_PART(timestamp, '-', 1), '.', 2) || ' hours')::interval AS converted_timestamp
 FROM dws.actions
 WHERE 
-    -- customer_id < 1000000 AND 
     timestamp ~ '^[0-9]{2}\.[0-9]{2}-[0-9]{2}\.[0-9]{2}\.[0-9]{2}$' AND
     TO_TIMESTAMP(SPLIT_PART(timestamp, '-', 2), 'DD.MM.YY') >= (CURRENT_DATE - INTERVAL '6 months');
 
-DROP INDEX IF EXISTS dws.IDX_digital_actions_process_par_month;
 CREATE INDEX IDX_digital_actions_process_par_month ON dws.digital_actions_process (month);
-
 CREATE INDEX idx_digital_actions_customer_id_partition ON dws.digital_actions_process (customer_id);
 CREATE INDEX idx_digital_actions_event_field ON dws.digital_actions_process (event_field);
 CREATE INDEX idx_digital_actions_time ON dws.digital_actions_process (converted_timestamp);
-
 ANALYZE dws.digital_actions_process;
 
--- 4 - Create temp_START_END_EVENTS
+-- 4 - Create temp_START_END_EVENTS (temp/process tablo)
 DROP TABLE IF EXISTS dws.temp_START_END_EVENTS;
-
 CREATE TABLE dws.temp_START_END_EVENTS (
     seq INT NOT NULL,  
     direction TEXT NOT NULL,
@@ -190,18 +168,12 @@ FROM dws.digital_actions_process da
 JOIN dws.lookup_START_END_EVENTS et 
     ON da.event_field = et.event_field AND et.direction = 'last';
 
-DROP INDEX IF EXISTS dws.temp_START_END_EVENTS_ind1;
 CREATE INDEX temp_START_END_EVENTS_ind1 ON dws.temp_START_END_EVENTS (customer_id, converted_timestamp);
-
-DROP INDEX IF EXISTS dws.temp_START_END_EVENTS_ind2;
 CREATE INDEX temp_START_END_EVENTS_ind2 ON dws.temp_START_END_EVENTS (converted_timestamp);
-
-DROP INDEX IF EXISTS dws.temp_START_END_EVENTS_ind3;
 CREATE INDEX temp_START_END_EVENTS_ind3 ON dws.temp_START_END_EVENTS (event_field);
 
--- Drop and create the output table
+-- 5 - Create out_path_4_events (her pipeline’da sıfırdan)
 DROP TABLE IF EXISTS dws.out_path_4_events;
-
 CREATE TABLE dws.out_path_4_events (
     seq INT, 
     direction TEXT NOT NULL, 
@@ -215,7 +187,7 @@ CREATE TABLE dws.out_path_4_events (
     event_4_data_num INT
 );
 
--- Insert processed event data
+-- Insert processed event data (burası da değişmedi)
 INSERT INTO dws.out_path_4_events 
 (seq, direction, cust_id, last_event_timestamp, event_1, event_2, event_3, event_4, event_4_data_text, event_4_data_num)
 WITH end_event AS (
@@ -309,3 +281,7 @@ JOIN end_event ee
     ON l3_1.customer_id = ee.customer_id AND l3_1.seq = ee.seq
 WHERE l3_1.event_rank = 1
 ORDER BY ee.seq, l3_1.customer_id;
+
+-- out_path_4_events tablosu için istersen index:
+CREATE INDEX idx_out_path_4_events_cust_id ON dws.out_path_4_events (cust_id);
+CREATE INDEX idx_out_path_4_events_timestamp ON dws.out_path_4_events (last_event_timestamp);

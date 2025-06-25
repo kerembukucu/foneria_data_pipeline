@@ -266,13 +266,13 @@ FROM (
     SELECT
         m.customer_id::text AS customer_id,
         -- Katılım fonlarının toplamı
-        SUM(CASE WHEN f.code IS NOT NULL THEN m.fund_volume ELSE 0 END) AS katilim_fon_toplam,
+        SUM(CASE WHEN f.code IS NOT NULL THEN m.size ELSE 0 END) AS katilim_fon_toplam,
         -- Tüm fonların toplamı
-        SUM(m.fund_volume) AS toplam_fon,
+        SUM(m.size) AS toplam_fon,
         -- Oran
         CASE
-            WHEN SUM(m.fund_volume) > 0
-            THEN SUM(CASE WHEN f.code IS NOT NULL THEN m.fund_volume ELSE 0 END) / SUM(m.fund_volume)::float
+            WHEN SUM(m.size) > 0
+            THEN SUM(CASE WHEN f.code IS NOT NULL THEN m.size ELSE 0 END) / SUM(m.size)::float
             ELSE 0
         END AS oran
     FROM dws.monthly_outstanding_funds m
@@ -280,7 +280,7 @@ FROM (
         SELECT DISTINCT code
         FROM dws.fund_details
         WHERE asset_class = 'Katılım'
-    ) f ON m.fund_id = f.code
+    ) f ON m.fund_code = f.code
     GROUP BY m.customer_id
 ) t
 WHERE a.customer_id = t.customer_id

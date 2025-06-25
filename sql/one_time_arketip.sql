@@ -40,7 +40,7 @@ ADD COLUMN faiz_okey INTEGER DEFAULT 0,
 ADD COLUMN video_izleyen INTEGER DEFAULT 0,
 ADD COLUMN dya_gece INTEGER DEFAULT 0,
 ADD COLUMN katilim_ilgi INTEGER DEFAULT 0,
-ADD COLUMN dya_score INTEGER DEFAULT 0;
-ADD COLUMN popular_fund_ratio FLOAT;
-ADD COLUMN yeni_portfoy INTEGER;
+ADD COLUMN dya_score INTEGER DEFAULT 0,
+ADD COLUMN popular_fund_ratio FLOAT,
+ADD COLUMN yeni_portfoy INTEGER,
 ADD COLUMN birden_fazla_banka_hesabi INTEGER;
